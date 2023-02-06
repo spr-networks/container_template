@@ -1,0 +1,17 @@
+version: '3.4'
+
+x-logging:
+  &default-logging
+  driver: journald
+
+x-labels:
+  &default-labels
+  org.supernetworks.ci: ${CI:-false}
+
+services:
+  container_template:
+    container_name: supercontainer_template
+    image: ghcr.io/spr-networks/container_template
+    build: .
+    logging: *default-logging
+    labels: *default-labels
