@@ -1,5 +1,5 @@
 # container_template
-Ubuntu Dockerfile Template for SPR Containers
+Ubuntu 23.04 Dockerfile Template for SPR Containers
 
 ## About
 
