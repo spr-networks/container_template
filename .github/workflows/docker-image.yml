@@ -49,7 +49,7 @@ jobs:
             --set "*.platform=linux/amd64,linux/arm64" \
             --set "*.tags=ghcr.io/spr-networks/container_template:${RELEASE_VERSION:-latest}" \
             --set "*.tags=ghcr.io/spr-networks/container_template:latest" \
-            `[ "${{ github.event_name }}" = "push" -a "${{ github.ref_name }}" = "main" ] && echo "--push"` \
+            `[ "${{ github.ref_name }}" = "main" ] && echo "--push"` \
       - name: Get images from docker-compose.yml
         id: get-images
         uses: mikefarah/yq@master
