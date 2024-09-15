@@ -2,7 +2,7 @@
 
 
 FOUND_PREBUILT_IMAGE=false
-for SERVICE in $(docker-compose config --services); do
+for SERVICE in $(docker compose config --services); do
   IS_PREBUILT=$(docker inspect \
     --format '{{ index .Config.Labels "org.supernetworks.ci" }}' \
     "ghcr.io/spr-networks/super_${SERVICE}" \
@@ -28,7 +28,7 @@ if [ "$missing_buildx" -eq "1" ];
 then
   export DOCKER_BUILDKIT=1
   export COMPOSE_DOCKER_CLI_BUILD=1
-  docker-compose build ${BUILDARGS} $@
+  docker compose build ${BUILDARGS} $@
 else
   # We use docker buildx so we can build multi-platform images. Unfortunately,
   # a limitation is that multi-platform images cannot be loaded from the builder
