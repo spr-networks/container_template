@@ -41,7 +41,6 @@ else
     docker buildx bake \
       --builder super-builder \
       --file docker-compose.yml \
-      --set *.output.squash=true
       ${BUILDARGS} "$@" \
       --print --progress none \
     | jq 'any(.target[].platforms//[]|map(split(",";"")[])|unique; length >= 2)'
@@ -56,7 +55,6 @@ else
   docker buildx bake \
     --builder super-builder \
     --file docker-compose.yml \
-    --set *.output.squash=true
     ${BUILDARGS} "$@"
 fi
 
