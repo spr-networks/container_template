@@ -51,7 +51,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           provenance: false
           push: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
-          tags: ghcr.io/spr-networks/container_template:${RELEASE_VERSION:-latest} , ghcr.io/spr-networks/container_template:latest
+          tags: |
+            ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
+            ghcr.io/spr-networks/container_template:latest
       - name: Get images from docker-compose.yml
         id: get-images
         uses: mikefarah/yq@master
