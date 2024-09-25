@@ -17,6 +17,10 @@ jobs:
 
   buildx:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
     steps:
       -
         name: Checkout
@@ -42,20 +46,40 @@ jobs:
       -
         name: build options
         run: echo "tags:" "*.platform=linux/amd64,linux/arm64" "tags=${RELEASE_VERSION:-latest}"
-      -
-        name: Build and push containers
-        run: |
-          ./build_docker_compose.sh \
-            --set "*.platform=linux/amd64,linux/arm64" \
-            --set "*.tags=ghcr.io/spr-networks/container_template:${RELEASE_VERSION:-latest}" \
-            --set "*.tags=ghcr.io/spr-networks/container_template:latest" \
-            `[ "${{ github.ref_name }}" = "main" ] && echo "--push"` \
+
+      - name: Build and push
+        id: build-and-push
+        uses: docker/build-push-action@v6
+        env:
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+          RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
+          tags: |
+            ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
+            ghcr.io/spr-networks/container_template:latest
+
       - name: Get images from docker-compose.yml
         id: get-images
         uses: mikefarah/yq@master
         with:
           cmd: yq -o json -I 0 '[.services|.[]|.image]' docker-compose.yml
+      # Install the cosign tool
+      # https://github.com/sigstore/cosign-installer
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.6.0
 
+      - name: Sign the images with GitHub OIDC Token
+        if: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
+        env:
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          IMG1: ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}@${{ steps.build-and-push.outputs.digest }}
+          IMG2: ghcr.io/spr-networks/container_template:latest@${{ steps.build-and-push.outputs.digest }}
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+          RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
+        run: |
+          cosign sign --yes ${{ env.IMG1 }} ${{ env.IMG2 }}
       - name: Set Matrix output
         id: set-matrix
         run: |
