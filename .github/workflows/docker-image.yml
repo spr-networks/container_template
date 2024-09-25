@@ -56,6 +56,10 @@ jobs:
           tags: |
             ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
             ghcr.io/spr-networks/container_template:latest
+
+      - name: test build outputs
+        run: echo  got::: ${{ steps.build-and-push.outputs }} for output
+
       - name: Get images from docker-compose.yml
         id: get-images
         uses: mikefarah/yq@master
