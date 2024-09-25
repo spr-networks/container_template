@@ -50,6 +50,7 @@ jobs:
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         with:
+          context: .
           provenance: true
           load: true
           platforms: linux/amd64,linux/arm64
