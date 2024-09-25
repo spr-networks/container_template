@@ -53,10 +53,10 @@ jobs:
           context: .
           provenance: true
           platforms: linux/amd64,linux/arm64
-          push: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
+          push: ${{ (github.event_name == 'push' && github.ref_name == 'cosign_test') }}
           tags: |
-            ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
-            ghcr.io/spr-networks/container_template:latest
+            ghcr.io/spr-networks/container_template-cosigntest:${{ env.RELEASE_VERSION || 'latest' }}
+            ghcr.io/spr-networks/container_template-cosigntest:latest
 
       -
         name: test build outputs
