@@ -58,7 +58,7 @@ jobs:
 
       -
         name: test build outputs
-        run: echo "${{ steps.build-and-push.outputs }}"
+        run: echo '${{ toJSON(steps.build-and-push.outputs) }}'
 
       - name: Get images from docker-compose.yml
         id: get-images
