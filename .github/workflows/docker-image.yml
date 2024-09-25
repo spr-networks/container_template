@@ -15,6 +15,8 @@ jobs:
 
   buildx:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
       -
         name: Checkout
@@ -67,18 +69,12 @@ jobs:
       - name: Sign the images with GitHub OIDC Token
         env:
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-          TAGS: ${{ steps.get-images.outputs.result }}
+          IMG1: ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}@${{ steps.build-and-push.outputs.digest }}
+          IMG2: ghcr.io/spr-networks/container_template:latest@${{ steps.build-and-push.outputs.digest }}
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         run: |
-          images=$(echo '${{ steps.get-images.outputs.result }}' | jq -r '.[]')
-          image_list=""
-          for image in $images; do
-            expanded_image=$(echo "$image" | envsubst)
-            image_list+="${expanded_image}@${DIGEST} "
-          done
-          cosign sign --yes ${image_list}
-
+          cosign sign --yes ${{IMG1}} ${{IMG2}}
       - name: Set Matrix output
         id: set-matrix
         run: |
