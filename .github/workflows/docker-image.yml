@@ -2,7 +2,7 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ main, dev, cosign_test ]
+    branches: [ main, dev ]
   schedule:
     - cron: "0 0 1 * *"
 #  workflow_run:
@@ -53,10 +53,10 @@ jobs:
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         with:
           platforms: linux/amd64,linux/arm64
-          push: ${{ (github.event_name == 'push' && github.ref_name == 'cosign_test') }}
+          push: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
           tags: |
-            ghcr.io/spr-networks/container_template-cosigntest:${{ env.RELEASE_VERSION || 'latest' }}
-            ghcr.io/spr-networks/container_template-cosigntest:latest
+            ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
+            ghcr.io/spr-networks/container_template:latest
 
       - name: Get images from docker-compose.yml
         id: get-images
@@ -69,11 +69,11 @@ jobs:
         uses: sigstore/cosign-installer@v3.6.0
 
       - name: Sign the images with GitHub OIDC Token
-        if: ${{ (github.event_name == 'push' && github.ref_name == 'cosign_test') }}
+        if: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
         env:
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-          IMG1: ghcr.io/spr-networks/container_template-cosigntest:${{ env.RELEASE_VERSION || 'latest' }}@${{ steps.build-and-push.outputs.digest }}
-          IMG2: ghcr.io/spr-networks/container_template-cosigntest:latest@${{ steps.build-and-push.outputs.digest }}
+          IMG1: ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}@${{ steps.build-and-push.outputs.digest }}
+          IMG2: ghcr.io/spr-networks/container_template:latest@${{ steps.build-and-push.outputs.digest }}
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         run: |
