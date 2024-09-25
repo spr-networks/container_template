@@ -50,6 +50,8 @@ jobs:
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         with:
+          provenance: true
+          load: true
           platforms: linux/amd64,linux/arm64
           push: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
           tags: |
@@ -58,7 +60,11 @@ jobs:
 
       -
         name: test build outputs
-        run: echo '${{ toJSON(steps.build-and-push.outputs) }}'
+        run: echo '${{ toJSON(steps.build-and-push.outputs.digest) }}'
+
+      -
+        name: test build outputs2
+        run: echo '${{ toJSON(steps.build-and-push.outputs.imageid) }}'
 
       - name: Get images from docker-compose.yml
         id: get-images
