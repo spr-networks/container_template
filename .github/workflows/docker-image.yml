@@ -55,6 +55,7 @@ jobs:
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         with:
           platforms: linux/amd64,linux/arm64
+          sbom: true
           push: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
           tags: |
             ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
