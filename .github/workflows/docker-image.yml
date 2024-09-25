@@ -74,7 +74,7 @@ jobs:
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         run: |
-          cosign sign --yes ${{IMG1}} ${{IMG2}}
+          cosign sign --yes ${{ env.IMG1 }} ${{ env.IMG2 }}
       - name: Set Matrix output
         id: set-matrix
         run: |
