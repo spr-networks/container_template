@@ -57,7 +57,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           sbom: true
-          push: ${{ (github.event_name == 'push' && github.ref_name == 'main') }}
+          push: ${{ ((github.event_name == 'push' || github.event_name == 'schedule') && github.ref_name == 'main') }}
           tags: |
             ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
             ghcr.io/spr-networks/container_template:latest
