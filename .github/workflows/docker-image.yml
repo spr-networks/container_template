@@ -26,7 +26,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: '0'
       -
@@ -36,12 +36,28 @@ jobs:
         name: Test release tag version
         run: echo "RELEASE_VERSION == $RELEASE_VERSION"
       -
+        name: Load reproducible build pins
+        run: grep -vE '^\s*(#|$)' reproducible.env >> "$GITHUB_ENV"
+      -
+        name: Compute SOURCE_DATE_EPOCH (commit time) and push flag
+        id: repro
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+          push=false
+          if { [ "${{ github.event_name }}" = "push" ] || [ "${{ github.event_name }}" = "schedule" ]; } && [ "${{ github.ref_name }}" = "main" ]; then
+            push=true
+          fi
+          echo "push=$push" >> "$GITHUB_OUTPUT"
+      -
         name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v3
       -
         name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
+        with:
+          # Pin the BuildKit backend (>= v0.13 required for rewrite-timestamp).
+          driver-opts: image=${{ env.BUILDKIT_REF }}
       -
         name: Authenticate to ghcr
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -53,15 +69,22 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@v6
         env:
+          # buildx (>=0.10) propagates SOURCE_DATE_EPOCH into the build for
+          # reproducible image/config/file timestamps.
+          SOURCE_DATE_EPOCH: ${{ env.SOURCE_DATE_EPOCH }}
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
         with:
           platforms: linux/amd64,linux/arm64
           sbom: true
-          push: ${{ ((github.event_name == 'push' || github.event_name == 'schedule') && github.ref_name == 'main') }}
-          tags: |
-            ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }}
-            ghcr.io/spr-networks/container_template:latest
+          provenance: true
+          build-args: |
+            UBUNTU_REF=${{ env.UBUNTU_REF }}
+            ALPINE_REF=${{ env.ALPINE_REF }}
+            UBUNTU_SNAPSHOT=${{ env.UBUNTU_SNAPSHOT }}
+          # rewrite-timestamp rewrites layer/file timestamps to SOURCE_DATE_EPOCH so
+          # the pushed multi-arch digest is bit-for-bit reproducible across machines.
+          outputs: type=image,"name=ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }},ghcr.io/spr-networks/container_template:latest",push=${{ steps.repro.outputs.push }},rewrite-timestamp=true
 
       # Install the cosign tool
       # https://github.com/sigstore/cosign-installer

@@ -1,12 +1,10 @@
-version: '3.4'
-
 x-logging:
   &default-logging
   driver: journald
 
 x-labels:
   &default-labels
-  org.supernetworks.ci: ${CI:-false}
+  org.supernetworks.ci: "true"
 
 services:
   container_template:

@@ -1,5 +1,35 @@
 #!/bin/bash
+# Reproducible build entrypoint for container_template.
+#
+# Pins live in ./reproducible.env (single source of truth). SOURCE_DATE_EPOCH is
+# derived from the git commit so the same commit always yields the same image
+# bytes, on any machine. Verify bit-for-bit reproducibility with
+# ../super/reproducible-build-verify.sh (or build twice with rewrite-timestamp and
+# compare the containerimage.digest).
 
+set -euo pipefail
+cd "$(dirname "$0")"
+
+# Load pins and export them so they are visible to bake/compose.
+set -a
+# shellcheck disable=SC1091
+. ./reproducible.env
+set +a
+
+# Deterministic timestamp: the commit time of the current checkout. buildx (>=0.10)
+# auto-propagates SOURCE_DATE_EPOCH from the environment into the build, and the
+# image exporter rewrites layer/file timestamps to it (rewrite-timestamp=true).
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --pretty=%ct 2>/dev/null || echo 0)}"
+echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
+
+# Shared args derived from reproducible.env, threaded into every bake target so the
+# committed ARG defaults can be overridden centrally.
+BAKE_SET=(
+  --set "*.args.UBUNTU_REF=${UBUNTU_REF}"
+  --set "*.args.ALPINE_REF=${ALPINE_REF}"
+  --set "*.args.UBUNTU_SNAPSHOT=${UBUNTU_SNAPSHOT}"
+  --set "*.args.SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
+)
 
 FOUND_PREBUILT_IMAGE=false
 for SERVICE in $(docker compose config --services); do
@@ -28,34 +58,40 @@ if [ "$missing_buildx" -eq "1" ];
 then
   export DOCKER_BUILDKIT=1
   export COMPOSE_DOCKER_CLI_BUILD=1
-  docker compose build ${BUILDARGS} $@
+  docker compose build ${BUILDARGS:-} "$@"
 else
   # We use docker buildx so we can build multi-platform images. Unfortunately,
   # a limitation is that multi-platform images cannot be loaded from the builder
-  # into Docker.
+  # into Docker. Pin the BuildKit backend image so the builder itself is
+  # reproducible (rewrite-timestamp needs BuildKit >= 0.13).
   docker buildx create --name super-builder --driver docker-container \
+    --driver-opt "image=${BUILDKIT_REF}" \
     2>/dev/null || true
 
-  # Look for any images that would be built multi-platform
-  IS_MULTIPLATFORM=$(
-    docker buildx bake \
-      --builder super-builder \
-      --file docker-compose.yml \
-      ${BUILDARGS} "$@" \
-      --print --progress none \
-    | jq 'any(.target[].platforms//[]|map(split(",";"")[])|unique; length >= 2)'
-  )
-
-  # If this is a single-platform build, then by default load it into Docker
-  echo Is this a multi-platform build? ${IS_MULTIPLATFORM}
-  if [ "$IS_MULTIPLATFORM" = "false" ]; then
-    BUILDARGS="$BUILDARGS --load"
-  fi
+  # This script controls the exporter so that rewrite-timestamp=true is always
+  # set: it rewrites in-layer file timestamps to SOURCE_DATE_EPOCH, which is what
+  # actually makes the image bit-for-bit reproducible. SOURCE_DATE_EPOCH alone
+  # only fixes the image "created" field, not the files inside the layers.
+  #
+  #   default  -> load the (single-arch) image into Docker  (type=docker)
+  #   --push   -> push the (multi-arch) image to the registry (type=registry)
+  # Multi-arch images cannot be loaded into Docker, so multi-arch always implies
+  # --push. We translate --load/--push into the exporter rather than passing them
+  # to bake directly (a bare --load would drop rewrite-timestamp).
+  OUTPUT="type=docker,rewrite-timestamp=true"
+  ARGS=()
+  for a in "$@"; do
+    case "$a" in
+      --load) ;;                                              # default; ignore
+      --push) OUTPUT="type=registry,rewrite-timestamp=true" ;;
+      *) ARGS+=("$a") ;;
+    esac
+  done
 
   docker buildx bake \
     --builder super-builder \
     --file docker-compose.yml \
-    ${BUILDARGS} "$@"
+    "${BAKE_SET[@]}" --set "*.output=${OUTPUT}" ${BUILDARGS:-} "${ARGS[@]}"
 fi
 
 ret=$?
