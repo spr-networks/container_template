@@ -49,6 +49,16 @@ jobs:
           fi
           echo "push=$push" >> "$GITHUB_OUTPUT"
       -
+        name: Authenticate to Docker Hub
+        if: ${{ vars.DOCKERHUB_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        name: Authenticate to ghcr
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       -
@@ -56,11 +66,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@v3
         with:
-          # Pin the BuildKit backend (>= v0.13 required for rewrite-timestamp).
           driver-opts: image=${{ env.BUILDKIT_REF }}
-      -
-        name: Authenticate to ghcr
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       -
         name: build options
         run: echo "tags:" "*.platform=linux/amd64,linux/arm64" "tags=${RELEASE_VERSION:-latest}"
@@ -69,8 +75,6 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@v6
         env:
-          # buildx (>=0.10) propagates SOURCE_DATE_EPOCH into the build for
-          # reproducible image/config/file timestamps.
           SOURCE_DATE_EPOCH: ${{ env.SOURCE_DATE_EPOCH }}
           RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
           RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
@@ -82,8 +86,6 @@ jobs:
             UBUNTU_REF=${{ env.UBUNTU_REF }}
             ALPINE_REF=${{ env.ALPINE_REF }}
             UBUNTU_SNAPSHOT=${{ env.UBUNTU_SNAPSHOT }}
-          # rewrite-timestamp rewrites layer/file timestamps to SOURCE_DATE_EPOCH so
-          # the pushed multi-arch digest is bit-for-bit reproducible across machines.
           outputs: type=image,"name=ghcr.io/spr-networks/container_template:${{ env.RELEASE_VERSION || 'latest' }},ghcr.io/spr-networks/container_template:latest",push=${{ steps.repro.outputs.push }},rewrite-timestamp=true
 
       # Install the cosign tool
