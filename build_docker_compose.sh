@@ -16,10 +16,8 @@ set -a
 . ./reproducible.env
 set +a
 
-# Deterministic timestamp: the commit time of the current checkout. buildx (>=0.10)
-# auto-propagates SOURCE_DATE_EPOCH from the environment into the build, and the
-# image exporter rewrites layer/file timestamps to it (rewrite-timestamp=true).
-export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git log -1 --pretty=%ct 2>/dev/null || echo 0)}"
+# Epoch 0 so rewrite-timestamp's clamp normalizes every file mtime.
+export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
 echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
 
 # Shared args derived from reproducible.env, threaded into every bake target so the
@@ -64,6 +62,14 @@ else
   # a limitation is that multi-platform images cannot be loaded from the builder
   # into Docker. Pin the BuildKit backend image so the builder itself is
   # reproducible (rewrite-timestamp needs BuildKit >= 0.13).
+  # Recreate super-builder if its BuildKit image doesn't match BUILDKIT_REF.
+  if docker buildx inspect super-builder >/dev/null 2>&1; then
+    CURRENT_BUILDKIT=$(docker buildx inspect super-builder \
+      | sed -n 's/.*image="\([^"]*\)".*/\1/p' | head -1)
+    if [ -n "${BUILDKIT_REF}" ] && [ "$CURRENT_BUILDKIT" != "${BUILDKIT_REF}" ]; then
+      docker buildx rm super-builder
+    fi
+  fi
   docker buildx create --name super-builder --driver docker-container \
     --driver-opt "image=${BUILDKIT_REF}" \
     2>/dev/null || true
