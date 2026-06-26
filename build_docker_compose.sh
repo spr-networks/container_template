@@ -20,6 +20,10 @@ set +a
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
 echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}"
 
+# Strip group/world write so COPY layer modes don't depend on the umask of
+# whoever ran git checkout.
+[ -d .git ] && find . -path ./.git -prune -o -exec chmod go-w {} +
+
 # Shared args derived from reproducible.env, threaded into every bake target so the
 # committed ARG defaults can be overridden centrally.
 BAKE_SET=(
