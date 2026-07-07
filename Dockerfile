@@ -2,7 +2,7 @@
 # Reproducible build: every input below is pinned (base image by digest, apt by
 # Ubuntu snapshot, CA bundle bootstrapped from a pinned image). See reproducible.env.
 ARG ALPINE_REF=alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
-ARG UBUNTU_REF=ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54
+ARG UBUNTU_REF=ubuntu:24.04@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
 # SOURCE_DATE_EPOCH is auto-propagated by buildx; declared here so BuildKit clamps
 # layer/file timestamps for reproducible output.
 ARG SOURCE_DATE_EPOCH
