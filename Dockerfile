@@ -14,7 +14,7 @@ FROM ${ALPINE_REF} AS cacerts
 
 FROM ${UBUNTU_REF} AS builder
 ENV DEBIAN_FRONTEND=noninteractive
-ARG UBUNTU_SNAPSHOT=20260601T000000Z
+ARG UBUNTU_SNAPSHOT=20260701T000000Z
 COPY --from=cacerts /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 # Pin apt to the Ubuntu snapshot archive. The snapshot host serves every arch and
 # every pocket (noble/updates/security) under one path, so a single stanza freezes
