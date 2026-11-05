@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 # Reproducible build: every input below is pinned (base image by digest, apt by
 # Ubuntu snapshot, CA bundle bootstrapped from a pinned image). See reproducible.env.
-ARG ALPINE_REF=alpine@sha256:c6b073f8e9e58d881f6ffba6ebf3b9ebd60b9e7d6e8337018c0e68bb5c356873
-ARG UBUNTU_REF=ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
+ARG ALPINE_REF=alpine@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+ARG UBUNTU_REF=ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 # SOURCE_DATE_EPOCH is auto-propagated by buildx; declared here so BuildKit clamps
 # layer/file timestamps for reproducible output.
 ARG SOURCE_DATE_EPOCH
@@ -14,7 +14,7 @@ FROM ${ALPINE_REF} AS cacerts
 
 FROM ${UBUNTU_REF} AS builder
 ENV DEBIAN_FRONTEND=noninteractive
-ARG UBUNTU_SNAPSHOT=20261021T000000Z
+ARG UBUNTU_SNAPSHOT=20261105T120000Z
 COPY --from=cacerts /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 # Pin apt to the Ubuntu snapshot archive. The snapshot host serves every arch and
 # every pocket (noble/updates/security) under one path, so a single stanza freezes
@@ -22,12 +22,19 @@ COPY --from=cacerts /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 RUN set -eux; \
     printf 'Types: deb\nURIs: https://snapshot.ubuntu.com/ubuntu/%s\nSuites: noble noble-updates noble-security\nComponents: main restricted universe multiverse\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n' "${UBUNTU_SNAPSHOT}" > /etc/apt/sources.list.d/ubuntu.sources; \
     printf 'APT::Install-Recommends "false";\nAcquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99reproducible
-RUN apt-get update && apt-get install -y --no-install-recommends attr nftables iproute2 netcat-traditional iputils-ping net-tools vim-tiny nano ca-certificates curl && rm -rf /var/lib/apt/lists/*
+# CVE-2026-109518: disable retries before updating APT itself.
+RUN printf 'Acquire::Retries "0";\n' > /etc/apt/apt.conf.d/99spr-apt-security \
+    && apt-get -o Acquire::Retries=0 update \
+    && apt-get -o Acquire::Retries=0 install -y --only-upgrade apt '?and(?installed,?source-package(^apt$))' \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 2.8.4ubuntu0.1 \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libapt-pkg6.0t64)" ge 2.8.4ubuntu0.1 \
+    && apt-get -o Acquire::Retries=0 install -y --no-install-recommends attr nftables iproute2 netcat-traditional iputils-ping net-tools vim-tiny nano ca-certificates curl && rm -rf /var/lib/apt/lists/*
 #RUN find / -type f -exec getfattr -n security.capability {} + 2>/dev/null -exec setfattr -x security.capability {} \; -print || true
 RUN setfattr -x security.capability /usr/bin/ping
 
 #squash layers to lose the extended attr layer.
 # The snapshot apt config copied below is inherited by every service image that
 # builds FROM container_template, so their apt installs are pinned too.
+# The retry mitigation is also inherited, including by third-party install scripts.
 FROM scratch
 COPY --from=builder / /
